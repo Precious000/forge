@@ -1,0 +1,60 @@
+version: "3.9"
+
+networks:
+  forge_internal:
+    driver: bridge
+    internal: false   # registry needs internet to pull base images
+  forge_external:
+    driver: bridge
+
+services:
+  registry:
+    build:
+      context: .
+      dockerfile: Dockerfile.registry
+    container_name: forge-registry
+    restart: unless-stopped
+    networks:
+      - forge_internal
+      - forge_external
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./data/artifacts:/data/artifacts
+      - ./data/db:/data/db
+      - ./data/logs:/data/logs
+    environment:
+      - REGISTRY_DB_PATH=/data/db/registry.db
+      - TOKEN_DB_PATH=/data/db/tokens.db
+      - ARTIFACT_STORAGE_DIR=/data/artifacts
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/artifacts/health-check"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  engine:
+    build:
+      context: .
+      dockerfile: Dockerfile.engine
+    container_name: forge-engine
+    restart: unless-stopped
+    networks:
+      - forge_internal
+      - forge_external
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data/logs:/data/logs
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp/forge-workspaces:/tmp/forge-workspaces
+    environment:
+      - REGISTRY_URL=http://registry:8001
+      - LOG_DIR=/data/logs
+      - WORKSPACE_BASE=/tmp/forge-workspaces
+      - SLACK_WEBHOOK=${SLACK_WEBHOOK:-}
+      - FORGE_TOKEN=${FORGE_TOKEN:-}
+    depends_on:
+      registry:
+        condition: service_started

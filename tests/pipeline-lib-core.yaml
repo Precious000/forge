@@ -1,0 +1,15 @@
+name: build-lib-core
+version: 1.0.0
+jobs:
+  build:
+    runtime: alpine:3.18
+    resources:
+      cpu: 0.5
+      memory: 256Mi
+    steps:
+      - name: create
+        run: "echo 'lib-core content' > out.tar.gz"
+artifacts:
+  - name: lib-core
+    version: 1.0.0
+    path: ./out.tar.gz
